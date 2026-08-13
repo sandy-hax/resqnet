@@ -1,0 +1,90 @@
+# ResQNet — Disaster Management System
+# Single-command deployment for all four components:
+#   disaster-db (PostgreSQL) · disaster-backend (FastAPI) · citizen (5173) · team (5174) · authority (5175)
+#
+#   Usage:
+#     docker compose up --build -d
+#
+#   Frontends are served by Nginx and proxy /api and /ws to the api container,
+#   so no CORS configuration is required between the web apps and the API.
+
+name: resqnet
+
+services:
+  db:
+    image: postgres:15
+    container_name: resqnet-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: disaster_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d disaster_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: ./backend
+    container_name: resqnet-api
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: disaster_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: ${JWT_SECRET:-dev_only_change_me_super_secret}
+      JWT_EXPIRY_MINUTES: 1440
+      OSRM_URL: https://router.project-osrm.org/route/v1/driving
+      # Direct browser access to the API (also allowed). The web apps go
+      # through the nginx proxy, so these origins are for local dev only.
+      CORS_ORIGINS: http://localhost:5173,http://localhost:5174,http://localhost:5175
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  citizen:
+    build:
+      context: ./app1
+      args:
+        VITE_API_BASE_URL: /api/v1
+        VITE_WS_URL: /ws
+    container_name: resqnet-citizen
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+  team:
+    build:
+      context: ./app2/disaster-team
+      args:
+        VITE_API_BASE_URL: /api/v1
+        VITE_WS_URL: /ws
+    container_name: resqnet-team
+    ports:
+      - "5174:80"
+    depends_on:
+      - api
+
+  authority:
+    build:
+      context: ./web/disaster-authority
+      args:
+        VITE_API_BASE_URL: /api/v1
+        VITE_WS_URL: /ws
+    container_name: resqnet-authority
+    ports:
+      - "5175:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

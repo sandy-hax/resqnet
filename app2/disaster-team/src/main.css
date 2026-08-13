@@ -1,0 +1,25 @@
+
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+html, body, #root { height: 100%; }
+
+.leaflet-container { height: 400px; width: 100%; }
+
+:root {
+	--color-bg: #F7F9FC;
+	--color-surface: #FFFFFF;
+	--color-text: #1A2233;
+	--color-muted: #6B7280;
+	--color-primary: #0F6E5C;
+	--color-danger: #E14434;
+	--color-border: #E4E8EF;
+}
+
+body { background: var(--color-bg); color: var(--color-text); }
+
+.card { background: var(--color-surface); border: 1px solid var(--color-border); box-shadow: 0 6px 18px var(--color-border); border-radius: 12px; }
+
+.text-muted { color: var(--color-muted); }
+

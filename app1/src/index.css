@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #F7F9FC;
+  --color-surface: #FFFFFF;
+  --color-text: #1A2233;
+  --color-muted: #6B7280;
+  --color-primary: #0F6E5C;
+  --color-primary-dark: #0B4F42;
+  --color-danger: #E14434;
+  --color-warning: #F5A623;
+  --color-success: #2E9E5B;
+  --color-border: #E4E8EF;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #111827;
+  color: #1A2233;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 110, 92, 0.3);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 110, 92, 0.6);
+}
+
+/* Leaflet map container fixes */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  z-index: 10;
+}
+
+/* Glassmorphism helpers */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(228, 232, 239, 0.7);
+}
+
+.glass-dark {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Pulsing SOS Button */
+.sos-button-glow {
+  box-shadow: 0 0 25px rgba(225, 68, 52, 0.6), 0 0 50px rgba(225, 68, 52, 0.3);
+}
+
+/* Mobile Frame Mock */
+.mobile-frame-container {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 12px #1f2937;
+}

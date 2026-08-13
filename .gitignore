@@ -1,0 +1,32 @@
+# Node
+node_modules/
+dist/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Env / secrets
+.env
+.env.local
+.env.production
+.env.development
+
+# Logs
+*.log
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
+
+# Capacitor / Android build outputs
+android/app/build/
+android/build/
+*.apk
+*.aab
+local.properties
+
+# Vercel
+.vercel/
