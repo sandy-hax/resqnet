@@ -36,7 +36,9 @@ class Settings:
     CORS_ORIGINS: list[str] = field(
         default_factory=lambda: os.getenv(
             "CORS_ORIGINS",
-            "http://localhost:5173,http://localhost:5174,http://localhost:5175",
+            "http://localhost:5173,http://localhost:5174,http://localhost:5175,"
+            "https://localhost,http://localhost,capacitor://localhost,ionic://localhost,"
+            "http://localhost:8080,https://resqnet-henna.vercel.app",
         ).split(",")
     )
 

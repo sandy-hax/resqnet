@@ -21,7 +21,7 @@ class WebSocketService {
 
   public connect() {
     const token = localStorage.getItem('resqnet_token');
-    const base = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8000/ws';
+    const base = import.meta.env.VITE_WS_URL ?? 'wss://resqnet-production.up.railway.app/ws';
     const wsUrl = base + (token ? `${base.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : '');
     try {
       this.ws = new WebSocket(wsUrl);
