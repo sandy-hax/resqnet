@@ -30,3 +30,6 @@ local.properties
 
 # Vercel
 .vercel/
+
+# Personal documents — never commit
+*.pdf
