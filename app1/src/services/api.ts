@@ -263,7 +263,7 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 4000,
+  timeout: 30000,
 });
 
 // Interceptor to attach Authorization header if available
@@ -282,9 +282,10 @@ export const apiService = {
     try {
       const response = await apiClient.post('/sos', data);
       rememberMySOS(response.data);
+      console.log('[ResQNet][sos] create OK, real id:', response.data.sos_id);
       return response.data;
     } catch (err) {
-      console.warn('Backend unavailable, using ResQNet Mock Engine for SOS submission');
+      console.warn('[ResQNet][sos] create FAILED, falling back to mock engine:', JSON.stringify(err));
       const list = getStoredMockSOS();
       const newSOS: SOSRequest = {
         sos_id: `SOS-${Math.floor(100000 + Math.random() * 900000)}`,
