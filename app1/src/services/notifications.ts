@@ -1,7 +1,16 @@
 import { Capacitor } from '@capacitor/core';
+import { App } from '@capacitor/app';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
-let permissionRequested = false;
+// Track real app foreground state via Capacitor (more reliable than
+// document.visibilityState, which does NOT flip on Android background).
+let appInForeground: boolean | null = null;
+if (Capacitor.isNativePlatform()) {
+  App.getState()
+    .then((s) => { appInForeground = s.isActive; })
+    .catch(() => { appInForeground = null; });
+  App.addListener('appStateChange', ({ isActive }) => { appInForeground = isActive; });
+}
 
 export async function ensureNotificationPermission() {
   if (!Capacitor.isNativePlatform()) {
@@ -10,8 +19,6 @@ export async function ensureNotificationPermission() {
     }
     return;
   }
-  if (permissionRequested) return;
-  permissionRequested = true;
   try {
     const status = await LocalNotifications.checkPermissions();
     if (status.display !== 'granted') {
@@ -24,9 +31,10 @@ export async function ensureNotificationPermission() {
 
 export async function notifyLocal(title: string, body: string) {
   try {
-    // Suppress intrusive heads-up popups while the user has the app open;
-    // the UI already reflects live updates. Notify only when backgrounded.
-    if (typeof document !== 'undefined' && document.visibilityState === 'visible') return
+    // Suppress only when we are CERTAIN the app is in the foreground (user is
+    // already looking at it). If we don't know the state, default to notifying.
+    if (Capacitor.isNativePlatform() && appInForeground === true) return;
+
     if (Capacitor.isNativePlatform()) {
       const status = await LocalNotifications.checkPermissions();
       if (status.display !== 'granted') {
