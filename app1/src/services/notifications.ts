@@ -24,6 +24,9 @@ export async function ensureNotificationPermission() {
 
 export async function notifyLocal(title: string, body: string) {
   try {
+    // Suppress intrusive heads-up popups while the user has the app open;
+    // the UI already reflects live updates. Notify only when backgrounded.
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') return
     if (Capacitor.isNativePlatform()) {
       const status = await LocalNotifications.checkPermissions();
       if (status.display !== 'granted') {

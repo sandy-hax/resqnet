@@ -54,7 +54,7 @@ export default function useGeolocation(_options?: PositionOptions) {
       watchId = await Geolocation.watchPosition(
         { enableHighAccuracy: true, maximumAge: 5000 },
         p => {
-          if (cancelled) return
+          if (cancelled || !p) return
           setPos(toDom(p))
           setError(null)
         },

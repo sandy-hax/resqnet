@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Header from '../components/Header'
@@ -27,25 +27,15 @@ export default function Dashboard() {
   })
 
   // Ask once for OS notification permission so live dispatch alerts can surface.
-  React.useEffect(() => { void ensureNotificationPermission() }, [])
+  useEffect(() => { void ensureNotificationPermission() }, [])
 
-  // Refresh whenever a new offer or status change arrives over WebSocket,
-  // and raise a system notification for every new dispatch offer.
+  // Refresh whenever a new offer or status change arrives over WebSocket.
   const onMessage = useCallback(
     (evt: MessageEvent) => {
       try {
         const msg = JSON.parse(evt.data)
         if (['assignment.offered', 'sos.status_changed'].includes(msg.event)) {
           queryClient.invalidateQueries({ queryKey: ['assignments', 'mine'] })
-        }
-        if (msg.event === 'assignment.offered' && msg.data) {
-          const d = msg.data
-          void notifyLocal(
-            'New Rescue Assignment',
-            `${d.sos_id} · ${String(d.emergency_type).replace(/_/g, ' ')}` +
-              `${d.people_affected ? ` · ${d.people_affected} affected` : ''}` +
-              `${d.distance_km != null ? ` · ${Number(d.distance_km).toFixed(1)} km away` : ''}`,
-          )
         }
       } catch {
         // ignore non-JSON frames
@@ -55,6 +45,35 @@ export default function Dashboard() {
   )
 
   useWebSocket(onMessage, token)
+
+  // Raise a system notification for every newly OFFERED dispatch. Driven by the
+  // refreshed assignments list (WS invalidation + 30s poll) so nothing is missed
+  // even if a WebSocket frame drops while the app is backgrounded.
+  const seenOffers = useRef<Set<string> | null>(null)
+  const notified = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const offeredIds = assignments
+      .filter((a: AssignmentDetail) => a.status === 'OFFERED')
+      .map((a: AssignmentDetail) => a.assignment_id)
+    if (seenOffers.current === null) {
+      seenOffers.current = new Set(offeredIds)
+      return
+    }
+    for (const id of offeredIds) {
+      if (seenOffers.current.has(id) || notified.current.has(id)) continue
+      const a = assignments.find((x: AssignmentDetail) => x.assignment_id === id)
+      if (!a) continue
+      notified.current.add(id)
+      void notifyLocal(
+        'New Rescue Assignment',
+        `${a.sos.sos_id} · ${String(a.sos.emergency_type).replace(/_/g, ' ')}` +
+          `${a.sos.people_affected ? ` · ${a.sos.people_affected} affected` : ''}` +
+          `${a.distance_km != null ? ` · ${Number(a.distance_km).toFixed(1)} km away` : ''}`,
+        Math.abs(hashCode(id)),
+      )
+    }
+    seenOffers.current = new Set(offeredIds)
+  }, [assignments])
 
   const open = assignments.filter((a: AssignmentDetail) => !['COMPLETED', 'DECLINED'].includes(a.status))
   const history = assignments.filter((a: AssignmentDetail) => ['COMPLETED', 'DECLINED'].includes(a.status))
@@ -130,4 +149,12 @@ function AssignmentRow({ a, compact }: { a: AssignmentDetail; compact?: boolean 
       </div>
     </Link>
   )
+}
+
+function hashCode(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) {
+    h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
+  }
+  return h
 }
