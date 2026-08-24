@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
@@ -74,6 +74,11 @@ export const InstantSOSScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<Array<{ lat: number; lng: number; display: string }>>([]);
   const [searching, setSearching] = useState<boolean>(false);
+
+  // Live GPS tracking state
+  const watchIdRef = useRef<string | null>(null);
+  const [watching, setWatching] = useState<boolean>(false);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [emergencyType, setEmergencyType] = useState<SOSRequest['emergency_type']>('FIRE');
   const [description, setDescription] = useState<string>('');
   const [peopleAffected, setPeopleAffected] = useState<number>(1);
@@ -85,48 +90,63 @@ export const InstantSOSScreen: React.FC = () => {
   const [formGuestPhone, setFormGuestPhone] = useState<string>(user?.phone || guestPhone || '');
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  // Request browser geolocation on load
+  // Start continuous live GPS on load; keep tracking until unmount.
   useEffect(() => {
-    handleDetectLocation();
+    startLiveGps();
+    return () => stopLiveGps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleDetectLocation = async () => {
-    setLocating(true);
+  const stopLiveGps = () => {
+    if (watchIdRef.current) {
+      if (Capacitor.isNativePlatform()) {
+        Geolocation.clearWatch({ id: watchIdRef.current });
+      } else if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+        navigator.geolocation.clearWatch(Number(watchIdRef.current));
+      }
+    }
+    watchIdRef.current = null;
+    setWatching(false);
+  };
+
+  const startLiveGps = async () => {
+    setWatching(true);
     try {
-      if (['android', 'ios'].includes(Capacitor.getPlatform())) {
+      if (Capacitor.isNativePlatform()) {
         try {
           await Geolocation.requestPermissions();
         } catch (permErr) {
-          console.warn('Geolocation permission request denied:', permErr);
+          console.warn('[ResQNet][gps] permission denied:', permErr);
         }
-        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
-        setLat(pos.coords.latitude);
-        setLng(pos.coords.longitude);
-        setLocating(false);
-        setGpsFixCount((c) => c + 1);
-        return;
-      }
-
-      if ('geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
+        watchIdRef.current = await Geolocation.watchPosition(
+          { enableHighAccuracy: true, timeout: 10000 },
           (pos) => {
             setLat(pos.coords.latitude);
             setLng(pos.coords.longitude);
-            setLocating(false);
+            setGpsAccuracy(pos.coords.accuracy ?? null);
             setGpsFixCount((c) => c + 1);
+            console.log('[ResQNet][gps] fix', pos.coords.latitude, pos.coords.longitude, 'acc', pos.coords.accuracy);
           },
-          (err) => {
-            console.warn('Geolocation error fallback to default pin:', err);
-            setLocating(false);
-          },
-          { enableHighAccuracy: true, timeout: 6000 }
         );
+      } else if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+        const id = navigator.geolocation.watchPosition(
+          (pos) => {
+            setLat(pos.coords.latitude);
+            setLng(pos.coords.longitude);
+            setGpsAccuracy(pos.coords.accuracy ?? null);
+            setGpsFixCount((c) => c + 1);
+            console.log('[ResQNet][gps] fix', pos.coords.latitude, pos.coords.longitude, 'acc', pos.coords.accuracy);
+          },
+          (err) => console.warn('[ResQNet][gps] error', JSON.stringify(err)),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+        );
+        watchIdRef.current = String(id);
       } else {
-        setLocating(false);
+        setWatching(false);
       }
     } catch (err) {
-      console.warn('Geolocation error fallback to default pin:', err);
-      setLocating(false);
+      console.warn('[ResQNet][gps] start failed', JSON.stringify(err));
+      setWatching(false);
     }
   };
 
@@ -244,9 +264,14 @@ export const InstantSOSScreen: React.FC = () => {
             <Text style={styles.sectionTitle}>1. Confirm Emergency Location</Text>
           </View>
 
-          <TouchableOpacity style={styles.reDetectBtn} onPress={handleDetectLocation} disabled={locating}>
-            {locating ? (
-              <ActivityIndicator size="small" color="#0F6E5C" />
+          <TouchableOpacity style={styles.reDetectBtn} onPress={() => (watching ? stopLiveGps() : startLiveGps())}>
+            {watching ? (
+              <>
+                <Navigation size={12} color="#0F6E5C" />
+                <Text style={styles.reDetectText}>
+                  {gpsAccuracy != null ? `GPS ${gpsAccuracy.toFixed(0)}m` : 'Tracking…'}
+                </Text>
+              </>
             ) : (
               <>
                 <Navigation size={12} color="#0F6E5C" />

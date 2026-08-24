@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getMyTeam, updateLocation } from '../api/client'
 import useGeolocation from './useGeolocation'
 
-const TRACK_INTERVAL_MS = 5 * 60 * 1000
+const TRACK_INTERVAL_MS = 30 * 1000
 
 /**
  * Auto-location tracking while the responder is On Duty.

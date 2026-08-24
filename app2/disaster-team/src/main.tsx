@@ -10,11 +10,13 @@ import './main.css'
 import { AuthProvider } from './contexts/AuthContext'
 import RequireAuth from './components/RequireAuth'
 import useLocationTracking from './hooks/useLocationTracking'
+import useAutoResponderStatus from './hooks/useAutoResponderStatus'
 
 const queryClient = new QueryClient()
 
 function DutyTracker() {
   useLocationTracking()
+  useAutoResponderStatus()
   return null
 }
 
