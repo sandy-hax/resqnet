@@ -53,7 +53,7 @@ export default function Login() {
                 <ShieldAlert size={26} />
               </div>
               <div>
-                <div className="text-lg font-bold text-white">Raksha Link</div>
+                <div className="text-lg font-bold text-white">ReqQNet</div>
                 <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
                   Command Center
                 </div>
@@ -61,12 +61,12 @@ export default function Login() {
             </div>
             <div className="mt-10 space-y-4">
               <h1 className="text-2xl font-bold leading-snug text-white">
-                ResQNet
+                ReqQNet
                 <br />
                 District Command & Control
               </h1>
               <p className="text-sm leading-relaxed text-slate-400">
-                Raksha Link — Command Center. Inspect incoming distress calls, verify legitimacy,
+                ReqQNet — Command Center. Inspect incoming distress calls, verify legitimacy,
                 direct pre-assigned disaster management teams and manage regional awareness programs
                 — all from one live operations console.
               </p>
@@ -90,7 +90,7 @@ export default function Login() {
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-white">
                 <ShieldAlert size={22} />
               </div>
-              <div className="text-lg font-bold text-text">ResQNet — Raksha Link Command Center</div>
+              <div className="text-lg font-bold text-text">ReqQNet — Command Center</div>
             </div>
           </div>
 

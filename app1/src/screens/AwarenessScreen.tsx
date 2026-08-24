@@ -31,7 +31,7 @@ export const AwarenessScreen: React.FC = () => {
     }
   };
 
-  const categories = ['ALL', 'FLOOD', 'CYCLONE', 'EARTHQUAKE', 'FIRE', 'PROGRAMS'];
+  const categories = ['ALL', 'FIRE', 'CYCLONE', 'MEDICAL', 'OTHER', 'PROGRAMS'];
 
   const filteredList = contentList.filter((item) => {
     if (selectedCategory === 'ALL') return true;

@@ -4,6 +4,7 @@ import { fetchSos } from '@/lib/api';
 import type { SOSDetail, WsMessage } from '@/types';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAuth } from '@/context/AuthContext';
+import { ensureNotificationPermission, pushBrowserNotification } from '@/lib/notifications';
 
 export const sosQueryKey = ['sos'] as const;
 
@@ -20,9 +21,18 @@ export function useLiveSos() {
   const { connected, subscribe } = useWebSocket(token);
 
   useEffect(() => {
+    void ensureNotificationPermission();
     const handle = (msg: WsMessage) => {
       if (['sos.created', 'sos.status_changed', 'assignment.responded'].includes(msg.event)) {
         queryClient.invalidateQueries({ queryKey: sosQueryKey });
+      }
+      if (msg.event === 'sos.created') {
+        const d = msg.data as { sos_id?: string; emergency_type?: string; description?: string; people_affected?: number } | undefined;
+        pushBrowserNotification(
+          `New SOS ${d?.sos_id ?? ''} — ${d?.emergency_type ?? 'Emergency'}`.trim(),
+          `${d?.description ?? 'Emergency assistance requested'}` +
+            `${d?.people_affected ? ` · ${d.people_affected} affected` : ''}`,
+        );
       }
     };
     return subscribe(handle);

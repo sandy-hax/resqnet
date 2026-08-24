@@ -13,7 +13,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'raksha_authority_session';
+const STORAGE_KEY = 'reqqnet_authority_session';
 
 function loadStored(): LoginResponse | null {
   try {

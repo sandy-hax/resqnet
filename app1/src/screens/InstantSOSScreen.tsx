@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Camera, AlertTriangle, Users, Navigation, Check, ShieldAlert } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useAuth } from '../context/AuthContext';
 import { apiService, SOSRequest } from '../services/api';
@@ -45,6 +47,22 @@ const LocationPickerMarker: React.FC<LocationPickerProps> = ({ lat, lng, onLocat
   );
 };
 
+interface RecenterProps {
+  lat: number;
+  lng: number;
+  trigger: number;
+}
+
+const MapRecentrer: React.FC<RecenterProps> = ({ lat, lng, trigger }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (trigger > 0) {
+      map.flyTo([lat, lng], Math.max(map.getZoom() || 14, 14), { duration: 1 });
+    }
+  }, [trigger]);
+  return null;
+};
+
 export const InstantSOSScreen: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, guestName, guestPhone, setGuestDetails } = useAuth();
@@ -52,12 +70,16 @@ export const InstantSOSScreen: React.FC = () => {
   const [lat, setLat] = useState<number>(11.3410);
   const [lng, setLng] = useState<number>(77.7172);
   const [locating, setLocating] = useState<boolean>(false);
-  const [emergencyType, setEmergencyType] = useState<SOSRequest['emergency_type']>('FLOOD');
+  const [gpsFixCount, setGpsFixCount] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<Array<{ lat: number; lng: number; display: string }>>([]);
+  const [searching, setSearching] = useState<boolean>(false);
+  const [emergencyType, setEmergencyType] = useState<SOSRequest['emergency_type']>('FIRE');
   const [description, setDescription] = useState<string>('');
   const [peopleAffected, setPeopleAffected] = useState<number>(1);
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('HIGH');
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  
+
   // Guest fields
   const [formGuestName, setFormGuestName] = useState<string>(user?.name || guestName || '');
   const [formGuestPhone, setFormGuestPhone] = useState<string>(user?.phone || guestPhone || '');
@@ -68,22 +90,82 @@ export const InstantSOSScreen: React.FC = () => {
     handleDetectLocation();
   }, []);
 
-  const handleDetectLocation = () => {
-    if ('geolocation' in navigator) {
-      setLocating(true);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLat(pos.coords.latitude);
-          setLng(pos.coords.longitude);
-          setLocating(false);
-        },
-        (err) => {
-          console.warn('Geolocation error fallback to default pin:', err);
-          setLocating(false);
-        },
-        { enableHighAccuracy: true, timeout: 6000 }
-      );
+  const handleDetectLocation = async () => {
+    setLocating(true);
+    try {
+      if (['android', 'ios'].includes(Capacitor.getPlatform())) {
+        try {
+          await Geolocation.requestPermissions();
+        } catch (permErr) {
+          console.warn('Geolocation permission request denied:', permErr);
+        }
+        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
+        setLat(pos.coords.latitude);
+        setLng(pos.coords.longitude);
+        setLocating(false);
+        setGpsFixCount((c) => c + 1);
+        return;
+      }
+
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setLat(pos.coords.latitude);
+            setLng(pos.coords.longitude);
+            setLocating(false);
+            setGpsFixCount((c) => c + 1);
+          },
+          (err) => {
+            console.warn('Geolocation error fallback to default pin:', err);
+            setLocating(false);
+          },
+          { enableHighAccuracy: true, timeout: 6000 }
+        );
+      } else {
+        setLocating(false);
+      }
+    } catch (err) {
+      console.warn('Geolocation error fallback to default pin:', err);
+      setLocating(false);
     }
+  };
+
+  const handleSearchPlace = async () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`,
+        { headers: { Accept: 'application/json' } }
+      );
+      const data = await res.json();
+      const results = Array.isArray(data)
+        ? data.map((r: any) => ({
+            lat: parseFloat(r.lat),
+            lng: parseFloat(r.lon),
+            display: r.display_name,
+          }))
+        : [];
+      setSearchResults(results);
+      if (results.length > 0) {
+        setLat(results[0].lat);
+        setLng(results[0].lng);
+        setGpsFixCount((c) => c + 1);
+      }
+    } catch (err) {
+      console.warn('Place search failed:', err);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const pickSearchResult = (r: { lat: number; lng: number; display: string }) => {
+    setLat(r.lat);
+    setLng(r.lng);
+    setGpsFixCount((c) => c + 1);
+    setSearchResults([]);
+    setSearchQuery(r.display);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,12 +218,8 @@ export const InstantSOSScreen: React.FC = () => {
   };
 
   const emergencyCategories: Array<{ type: SOSRequest['emergency_type']; label: string; icon: string }> = [
-    { type: 'FLOOD', label: 'Flood', icon: '🌊' },
     { type: 'FIRE', label: 'Fire', icon: '🔥' },
     { type: 'CYCLONE', label: 'Cyclone', icon: '🌀' },
-    { type: 'EARTHQUAKE', label: 'Earthquake', icon: '🏚️' },
-    { type: 'LANDSLIDE', label: 'Landslide', icon: '⛰️' },
-    { type: 'TSUNAMI', label: 'Tsunami', icon: '🌊' },
     { type: 'MEDICAL', label: 'Medical', icon: '🚑' },
     { type: 'OTHER', label: 'Other', icon: '🚨' },
   ];
@@ -178,7 +256,36 @@ export const InstantSOSScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.mapInstruction}>Tap map or drag marker pin to fine-tune your exact coordinates.</Text>
+        <Text style={styles.mapInstruction}>Tap map or drag marker pin — or search a place name — to set your exact coordinates.</Text>
+
+        {/* Place Search Bar */}
+        <View style={styles.searchBarWrap}>
+          <View style={styles.searchRow}>
+            <input
+              style={styles.searchInput}
+              placeholder="Search place / area / landmark…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSearchPlace(); }}
+            />
+            <TouchableOpacity style={styles.searchBtn} onPress={handleSearchPlace} disabled={searching}>
+              {searching ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.searchBtnText}>Search</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          {searchResults.length > 0 && (
+            <View style={styles.searchResults}>
+              {searchResults.map((r, idx) => (
+                <TouchableOpacity key={idx} style={styles.searchResultItem} onPress={() => pickSearchResult(r)}>
+                  <Text style={styles.searchResultText} numberOfLines={2}>{r.display}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
 
         {/* Map Container */}
         <View style={styles.mapFrame}>
@@ -192,6 +299,7 @@ export const InstantSOSScreen: React.FC = () => {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            <MapRecentrer lat={lat} lng={lng} trigger={gpsFixCount} />
             <LocationPickerMarker lat={lat} lng={lng} onLocationChange={(newLat, newLng) => { setLat(newLat); setLng(newLng); }} />
           </MapContainer>
         </View>
@@ -430,6 +538,57 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#6B7280',
   },
+  searchBarWrap: {
+    marginVertical: 8,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  searchInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E4E8EF',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    backgroundColor: '#FFFFFF',
+    color: '#111827',
+    outline: 'none',
+  },
+  searchBtn: {
+    backgroundColor: '#0F6E5C',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  searchResults: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: '#E4E8EF',
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  searchResultItem: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F3F7',
+  },
+  searchResultText: {
+    fontSize: 12,
+    color: '#374151',
+  },
   mapFrame: {
     height: 180,
     borderRadius: 12,
@@ -454,7 +613,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   categoryCard: {
-    width: '23%',
+    width: '47%',
     backgroundColor: '#F7F9FC',
     borderRadius: 10,
     paddingVertical: 10,

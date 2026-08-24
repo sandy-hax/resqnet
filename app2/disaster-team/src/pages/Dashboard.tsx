@@ -5,6 +5,7 @@ import Header from '../components/Header'
 import useWebSocket from '../hooks/useWebSocket'
 import { getMyAssignments, type AssignmentDetail } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
+import { ensureNotificationPermission, notifyLocal } from '../services/notify'
 
 const STATUS_STYLES: Record<string, string> = {
   OFFERED: 'bg-violet-100 text-violet-700',
@@ -25,13 +26,26 @@ export default function Dashboard() {
     refetchInterval: 30_000,
   })
 
-  // Refresh whenever a new offer or status change arrives over WebSocket.
+  // Ask once for OS notification permission so live dispatch alerts can surface.
+  React.useEffect(() => { void ensureNotificationPermission() }, [])
+
+  // Refresh whenever a new offer or status change arrives over WebSocket,
+  // and raise a system notification for every new dispatch offer.
   const onMessage = useCallback(
     (evt: MessageEvent) => {
       try {
         const msg = JSON.parse(evt.data)
         if (['assignment.offered', 'sos.status_changed'].includes(msg.event)) {
           queryClient.invalidateQueries({ queryKey: ['assignments', 'mine'] })
+        }
+        if (msg.event === 'assignment.offered' && msg.data) {
+          const d = msg.data
+          void notifyLocal(
+            'New Rescue Assignment',
+            `${d.sos_id} · ${String(d.emergency_type).replace(/_/g, ' ')}` +
+              `${d.people_affected ? ` · ${d.people_affected} affected` : ''}` +
+              `${d.distance_km != null ? ` · ${Number(d.distance_km).toFixed(1)} km away` : ''}`,
+          )
         }
       } catch {
         // ignore non-JSON frames

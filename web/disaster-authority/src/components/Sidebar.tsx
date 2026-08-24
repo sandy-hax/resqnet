@@ -30,7 +30,7 @@ export default function Sidebar() {
           <ShieldAlert size={22} />
         </div>
         <div>
-          <div className="text-sm font-bold leading-tight text-white">Raksha Link</div>
+          <div className="text-sm font-bold leading-tight text-white">ReqQNet</div>
           <div className="text-[10px] font-medium uppercase tracking-widest text-slate-400">
             Command Center
           </div>

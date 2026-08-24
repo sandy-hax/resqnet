@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import { wsService } from '../services/websocket';
+import { ensureNotificationPermission, notifyLocal } from '../services/notifications';
 
 export interface UserProfile {
   user_id: string;
@@ -39,7 +40,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsub = wsService.subscribe('connection.status', (msg) => {
       setIsWsConnected(msg.payload.connected);
     });
-    return unsub;
+
+    // Ask once for OS notification permission.
+    void ensureNotificationPermission();
+
+    // Notify the citizen when THEIR sos advances: approved -> assigned -> on the way.
+    const isMySos = (sosId?: string | null): boolean => {
+      if (!sosId) return false;
+      try {
+        const mine = JSON.parse(localStorage.getItem('resqnet_my_sos') || '[]');
+        return Array.isArray(mine) && mine.some((s: any) => s.sos_id === sosId);
+      } catch {
+        return false;
+      }
+    };
+
+    const unsubStatus = wsService.subscribe('sos.status_changed', (msg) => {
+      const { sos_id: sosId, status } = msg.payload || {};
+      if (!isMySos(sosId)) return;
+      if (status === 'VERIFIED') {
+        void notifyLocal('SOS Approved', `${sosId} was verified by authorities. Help is being arranged.`);
+      } else if (status === 'ASSIGNED') {
+        void notifyLocal('Rescue Team Assigned', `A response team has been assigned to ${sosId}.`);
+      } else if (status === 'RESPONDER_ON_WAY') {
+        void notifyLocal('Rescue Team On The Way', `Responders are heading to your location for ${sosId}.`);
+      }
+    });
+
+    return () => {
+      unsub();
+      unsubStatus();
+    };
   }, []);
 
   const login = async (phone: string) => {

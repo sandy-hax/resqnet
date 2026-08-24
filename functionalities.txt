@@ -1,0 +1,44 @@
+ResQNet — Disaster Management System
+Three stakeholder apps + one backend, all interconnected.
+
+1. Citizen App (mobile APK)
+SOS submission: describe emergency, select hazard type (flood/fire/cyclone/etc.), pick GPS pin on the Leaflet map (tap/drag), optional photo, submit
+Auto GPS: native phone GPS fills in your real location; map flies to it
+Guest SOS: no login needed for emergency reports (name + phone only)
+Track my SOS: view past/submitted requests and their live status
+
+2. Team App (mobile APK, responder portal)
+Sign in for disaster management teams (NDRF-style units)
+Assignment inbox: receives SOS assignments offered, can Accept/Decline
+On-duty toggle + auto location tracking: when marked available, pushes GPS to the backend every 5 min so dispatch distances stay fresh
+Responder view: sees SOS details, routes/navigation to the incident, updates status (on-the-way → arrived → completed)
+
+3. Authority Dashboard (web)
+Real-time SOS queue: verification tab listing all SOS, live via WebSocket push + 30s polling
+Verify/reject + set priority on SOS reports
+Dispatch: nearest available team (haversine distance ranking), assigns responders
+Live map/metrics: track team locations, high-priority incidents, active responders
+Other modules: relief shelters, public alerts/broadcasts, content publishing
+
+4. Backend (FastAPI on Railway)
+REST API (/api/v1) — auth, SOS, teams, assignments, shelters, alerts, content
+WebSocket (/ws) — real-time events: sos.created, sos.status_changed, assignment.offered, team.location_updated
+Role-based access: REQUESTER / DISASTER_MGMT_TEAM / AUTHORITY
+Postgres (Supabase) via async SQLAlchemy, seeded demo data
+
+Flow in action
+Citizen submits SOS → backend stores it, broadcasts over WS → authority dashboard updates instantly → authority verifies → assigns nearest team → team app receives offer → responder accepts and updates status → citizen sees live progress.
+
+Tech Stack
+Layer	Technology
+Backend	Python, FastAPI, SQLAlchemy 2 (async) + asyncpg
+Database	PostgreSQL on Supabase (postgres.resqnet DB, Session pooler/SSL)
+Realtime	WebSockets (FastAPI websockets)
+Authority dashboard	React 18 + Vite, TanStack Query, react-leaflet, Tailwind, lucide icons
+Citizen app	React 18 + Vite + react-native-web + react-leaflet, Capacitor 8
+Team app	React 18 + Vite + react-native-web + react-leaflet, Capacitor 8
+Native GPS	@capacitor/geolocation (citizen SOS + team location tracking)
+Mobile OS	Android (custom debug APKs)
+Hosting	Railway (backend + WS), Vercel (authority web), GitHub Actions none — APKs sideloaded
+Seeding	Demo login users (authority / team / citizen), sample SOS, teams
+All live URLs point to https://resqnet-production.up.railway.app (REST /api/v1, WS /ws).
