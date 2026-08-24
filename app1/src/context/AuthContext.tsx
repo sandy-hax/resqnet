@@ -57,6 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const unsubStatus = wsService.subscribe('sos.status_changed', (msg) => {
       const { sos_id: sosId, status } = msg.payload || {};
+      console.log('[ResQNet][status] event received sos_id=', sosId, 'status=', status, 'isMySos=', isMySos(sosId));
       if (!isMySos(sosId)) return;
       if (status === 'VERIFIED') {
         void notifyLocal('SOS Approved', `${sosId} was verified by authorities. Help is being arranged.`);
